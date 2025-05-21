@@ -12,12 +12,14 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+// Folder for static files photo profile users
+app.use('/photo', express.static('public/photo'));
+
 // Routes
 app.use('/api', authRoutes);
 
 // Admin routes
 app.use('/api/admin', userRoutes);
-
 
 app.use(errorMiddleware);
 

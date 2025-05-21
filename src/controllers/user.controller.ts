@@ -3,6 +3,16 @@ import { UserRequest } from "../types/user";
 import { UserService } from "../services/user.service";
 import { PagingRequest } from "../models/paging.model";
 import { CreateUserRequest, UpdateUserRequest } from "../models/user.model";
+import path from "path";
+import fs from "fs";
+
+// Folder untuk menyimpan foto profil
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'photo');
+
+// Memastikan direktori upload ada
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 export class UserController {
     static async getUsers(req: UserRequest, res: Response, next: NextFunction) {
@@ -47,6 +57,10 @@ export class UserController {
         try {
             const data = req.body as CreateUserRequest;
 
+            if (req.file) {
+                data.photo = req.file.filename;
+            }
+
             const response = await UserService.createUser(data);
 
             res.status(201).json({
@@ -55,6 +69,13 @@ export class UserController {
                 data: response,
             });
         } catch (error) {
+            if (req.file) {
+                const filePath = path.join(UPLOAD_DIR, req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+
             next(error);
         }
     }
@@ -64,6 +85,12 @@ export class UserController {
             const userId = req.params.id;
             const data = req.body as UpdateUserRequest;
 
+            if (req.file) {
+                data.photo = req.file.filename;
+            } else if (req.body.removePhoto === 'true') {
+                data.photo = undefined;
+            }
+
             const response = await UserService.updateUser(userId, data);
 
             res.status(200).json({
@@ -72,6 +99,13 @@ export class UserController {
                 data: response,
             });
         } catch (error) {
+            if (req.file) {
+                const filePath = path.join(UPLOAD_DIR, req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+
             next(error);
         }
     }

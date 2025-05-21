@@ -5,12 +5,14 @@ export class UserValidation {
         name: z.string().min(5),
         email: z.string().email(),
         password: z.string().min(6),
+        photo: z.string().optional(),
         role: z.enum(["USER", "ADMIN"]).default("USER"),
     });
-
+    
     static readonly UPDATE: ZodType = z.object({
         name: z.string().min(5).optional(),
         email: z.string().email().optional(),
         password: z.string().min(6).optional(),
+        photo: z.string().optional(),
     });
 }

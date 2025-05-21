@@ -5,15 +5,27 @@ import { CreateUserRequest, UpdateUserRequest, User } from "../models/user.model
 import { UserValidation } from "../validation/user.validation";
 import { Validation } from "../validation/validation";
 import { ResponseError } from '../types/response.error';
+import path from 'path';
+import fs from 'fs';
+import logger from '../config/logger';
 
 const userSelectFields = {
     id: true,
     email: true,
     name: true,
+    photo: true,
     role: true,
     createdAt: true,
     updatedAt: true
 };
+
+// Folder untuk menyimpan foto profil
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'photo');
+
+// Memastikan direktori upload ada
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 export class UserService {
     static async getUsers(req: PagingRequest): Promise<Pageable<User>> {
@@ -92,6 +104,15 @@ export class UserService {
             }
         }
 
+        if (data.photo !== undefined) {
+            if (data.photo && existingUser.photo) {
+                await this.deletePhoto(existingUser.photo);
+            }
+            else if (data.photo === null && existingUser.photo) {
+                await this.deletePhoto(existingUser.photo);
+            }
+        }
+
         if (data.password) {
             data.password = await bcrypt.hash(data.password, 10);
         }
@@ -108,7 +129,11 @@ export class UserService {
     static async deleteUser(id: string): Promise<User> {
         const userId = parseInt(id);
 
-        await this.ensureUserExists(userId);
+        const existingUser = await this.ensureUserExists(userId);
+
+        if (existingUser.photo) {
+            await this.deletePhoto(existingUser.photo);
+        }
 
         const user = await prisma.user.delete({
             where: { id: userId },
@@ -131,5 +156,17 @@ export class UserService {
         }
 
         return user as User;
+    }
+
+    private static async deletePhoto(photo: string): Promise<void> {
+        try {
+            const photoPath = path.join(UPLOAD_DIR, photo);
+
+            if (fs.existsSync(photoPath)) {
+                fs.unlinkSync(photoPath);
+            }
+        } catch (error) {
+            logger.error(`Failed to delete photo file: ${photo}`, error);
+        }
     }
 }

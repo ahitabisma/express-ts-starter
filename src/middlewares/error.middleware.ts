@@ -1,6 +1,7 @@
 import { Response, Request, NextFunction } from "express";
 import { ZodError } from "zod";
 import { ResponseError } from "../types/response.error";
+import multer from "multer";
 
 export const errorMiddleware = async (error: Error, req: Request, res: Response, next: NextFunction) => {
     if (error instanceof ZodError) {
@@ -21,6 +22,14 @@ export const errorMiddleware = async (error: Error, req: Request, res: Response,
             success: false,
             message: "Validation failed",
             errors: formattedErrors
+        });
+    } else if (error instanceof multer.MulterError) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+            errors: {
+                file: [error.message]
+            }
         });
     } else if (error instanceof ResponseError) {
         res.status(error.status).json({
