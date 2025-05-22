@@ -8,3 +8,5 @@ export const authRoutes = Router();
 authRoutes.post("/register", AuthController.register);
 authRoutes.post("/login", AuthController.login);
 authRoutes.get("/current", [authMiddleware, authorizeAll], AuthController.current);
+authRoutes.post("/logout", [authMiddleware], AuthController.logout);
+authRoutes.get("/refresh", AuthController.refreshToken);

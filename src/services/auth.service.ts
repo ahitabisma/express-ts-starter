@@ -79,4 +79,74 @@ export class AuthService {
     static async current(req: UserRequest) {
         return req.user;
     }
+
+    static async logout(refreshToken: string) {
+        if (!refreshToken) {
+            throw new ResponseError(401, "Unauthorized", {
+                error: ["Unauthorized"]
+            });
+        }
+
+        const refreshTokenRecord = await prisma.refreshToken.findUnique({
+            where: { token: refreshToken }
+        });
+
+        if (!refreshTokenRecord) {
+            throw new ResponseError(401, "Unauthorized", {
+                error: ["Unauthorized"]
+            });
+        }
+
+        await prisma.refreshToken.delete({
+            where: { id: refreshTokenRecord.id }
+        });
+
+        return true;
+    }
+
+    static async refreshToken(token: string) {
+        const refreshTokenRecord = await prisma.refreshToken.findUnique({
+            where: { token },
+            include: { user: true }
+        });
+
+        if (!refreshTokenRecord) {
+            throw new ResponseError(401, "Invalid refresh token", {
+                error: ["Invalid refresh token"]
+            });
+        }
+
+        if (refreshTokenRecord.expiresAt < new Date()) {
+            await prisma.refreshToken.delete({
+                where: { id: refreshTokenRecord.id }
+            });
+
+            throw new ResponseError(401, "Refresh token expired", {
+                error: ["Refresh token expired. Please login again."]
+            });
+        }
+
+        const userResponse = toUserResponse(refreshTokenRecord.user);
+
+        const accessToken = generateAccessToken(userResponse);
+        const newRefreshToken = generateRefreshToken(userResponse);
+
+        await prisma.refreshToken.delete({
+            where: { id: refreshTokenRecord.id }
+        });
+
+        await prisma.refreshToken.create({
+            data: {
+                token: newRefreshToken,
+                userId: refreshTokenRecord.user.id,
+                expiresAt: calculateExpiryDate(jwtConfig.refreshToken.expiresIn)
+            }
+        });
+
+        return {
+            user: userResponse as UserResponse,
+            token: accessToken,
+            refreshToken: newRefreshToken
+        };
+    }
 }

@@ -27,10 +27,20 @@ export class AuthController {
             const data = req.body as LoginUserRequest;
 
             const response = await AuthService.login(data);
+
+            res.cookie("refreshToken", response.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+
+            const { refreshToken, ...newResponse } = response;
+
             res.status(200).json({
                 success: true,
                 message: "User logged in successfully",
-                data: response,
+                data: newResponse,
             });
         } catch (error) {
             logger.error("Error in AuthController.login: ", error);
@@ -47,6 +57,56 @@ export class AuthController {
             });
         } catch (error) {
             logger.error("Error in AuthController.current: ", error);
+            next(error);
+        }
+    }
+
+    static async logout(req: UserRequest, res: Response, next: NextFunction) {
+        try {
+            const refreshToken = req.cookies.refreshToken;
+
+            if (refreshToken) {
+                await AuthService.logout(refreshToken);
+            }
+
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+            });
+
+            res.status(200).json({
+                success: true,
+                message: "User logged out successfully",
+            });
+        } catch (error) {
+            logger.error("Error in AuthController.logout: ", error);
+            next(error);
+        }
+    }
+
+    static async refreshToken(req: Request, res: Response, next: NextFunction) {
+        try {
+            const refreshToken = req.cookies.refreshToken;
+
+            const response = await AuthService.refreshToken(refreshToken);
+
+            res.cookie("refreshToken", response.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+
+            const { refreshToken: newRefreshToken, ...newResponse } = response;
+
+            res.status(200).json({
+                success: true,
+                message: "Token refreshed successfully",
+                data: newResponse,
+            });
+        } catch (error) {
+            logger.error("Error in AuthController.refreshToken: ", error);
             next(error);
         }
     }
