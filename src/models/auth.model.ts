@@ -11,6 +11,12 @@ export interface LoginUserRequest {
     password: string;
 }
 
+export interface UpdateUserProfileRequest {
+    name?: string;
+    password?: string;
+    photo?: string;
+}
+
 export interface UserResponse {
     id: number;
     name: string;

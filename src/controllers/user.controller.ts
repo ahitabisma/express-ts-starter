@@ -5,14 +5,7 @@ import { PagingRequest } from "../models/paging.model";
 import { CreateUserRequest, UpdateUserRequest } from "../models/user.model";
 import path from "path";
 import fs from "fs";
-
-// Folder untuk menyimpan foto profil
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'photo');
-
-// Memastikan direktori upload ada
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+import { UPLOAD_DIR } from "../utils/upload";
 
 export class UserController {
     static async getUsers(req: UserRequest, res: Response, next: NextFunction) {

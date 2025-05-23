@@ -1,5 +1,6 @@
+import { UserController } from './../controllers/user.controller';
 import { prisma } from "../config/database";
-import { RegisterUserRequest, LoginUserRequest, toUserResponse, UserResponse } from "../models/auth.model";
+import { RegisterUserRequest, LoginUserRequest, toUserResponse, UserResponse, UpdateUserProfileRequest } from "../models/auth.model";
 import { ResponseError } from "../types/response.error";
 import { UserRequest } from "../types/user";
 import { calculateExpiryDate } from "../utils/expired";
@@ -7,6 +8,8 @@ import { generateAccessToken, generateRefreshToken, jwtConfig } from "../utils/j
 import { AuthValidation } from "../validation/auth.validation";
 import { Validation } from "../validation/validation";
 import bcrypt from "bcrypt";
+import { UserService } from './user.service';
+import logger from '../config/logger';
 
 export class AuthService {
     static async register(req: RegisterUserRequest) {
@@ -147,6 +150,50 @@ export class AuthService {
             user: userResponse as UserResponse,
             token: accessToken,
             refreshToken: newRefreshToken
+        };
+    }
+
+    static async updateProfile(id: number, req: UpdateUserProfileRequest) {
+        const data = Validation.validate(AuthValidation.UPDATE_PROFILE, req);
+
+        logger.info("Update profile data: ", req);
+
+        const user = await prisma.user.findUnique({
+            where: {
+                id: id
+            }
+        });
+
+        if (!user) {
+            throw new ResponseError(404, "User not found", {
+                error: ["User not found"]
+            });
+        }
+
+        if (data.password) {
+            data.password = await bcrypt.hash(data.password, 10);
+        }
+
+        if (data.photo !== undefined) {
+            if (data.photo && user.photo) {
+                await UserService.deletePhoto(user.photo);
+            }
+            else if (data.photo === null && user.photo) {
+                await UserService.deletePhoto(user.photo);
+            }
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: {
+                id: id
+            },
+            data
+        });
+
+        const { password, ...response } = updatedUser;
+
+        return {
+            user: response
         };
     }
 }

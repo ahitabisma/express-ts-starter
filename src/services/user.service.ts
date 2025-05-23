@@ -8,6 +8,7 @@ import { ResponseError } from '../types/response.error';
 import path from 'path';
 import fs from 'fs';
 import logger from '../config/logger';
+import { UPLOAD_DIR } from '../utils/upload';
 
 const userSelectFields = {
     id: true,
@@ -18,14 +19,6 @@ const userSelectFields = {
     createdAt: true,
     updatedAt: true
 };
-
-// Folder untuk menyimpan foto profil
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'photo');
-
-// Memastikan direktori upload ada
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
 
 export class UserService {
     static async getUsers(req: PagingRequest): Promise<Pageable<User>> {
@@ -158,7 +151,7 @@ export class UserService {
         return user as User;
     }
 
-    private static async deletePhoto(photo: string): Promise<void> {
+    static async deletePhoto(photo: string): Promise<void> {
         try {
             const photoPath = path.join(UPLOAD_DIR, photo);
 

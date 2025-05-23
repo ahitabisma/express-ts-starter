@@ -11,4 +11,10 @@ export class AuthValidation {
         email: z.string().email(),
         password: z.string().min(6),
     });
+
+    static readonly UPDATE_PROFILE: ZodType = z.object({
+        name: z.string().optional(),
+        password: z.string().min(6).optional(),
+        photo: z.string().optional(),
+    });
 }

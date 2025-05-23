@@ -1,8 +1,11 @@
 import { NextFunction, Request, Response } from "express";
-import { RegisterUserRequest, LoginUserRequest } from "../models/auth.model";
+import { RegisterUserRequest, LoginUserRequest, UpdateUserProfileRequest } from "../models/auth.model";
 import { AuthService } from "../services/auth.service";
 import logger from "../config/logger";
 import { UserRequest } from "../types/user";
+import path from "path";
+import fs from "fs";
+import { UPLOAD_DIR } from "../utils/upload";
 
 export class AuthController {
     static async register(req: Request, res: Response, next: NextFunction) {
@@ -107,6 +110,38 @@ export class AuthController {
             });
         } catch (error) {
             logger.error("Error in AuthController.refreshToken: ", error);
+            next(error);
+        }
+    }
+
+    static async updateProfile(req: UserRequest, res: Response, next: NextFunction) {
+        try {
+            const data = req.body || {} as UpdateUserProfileRequest;
+
+            if (req.file) {
+                data.photo = req.file.filename;
+            } else if (req.body && req.body.removePhoto === 'true') {
+                data.photo = null; // Using null instead of undefined for explicit DB removal
+            }
+
+            logger.info("Update profile data: ", req.body);
+
+            const response = await AuthService.updateProfile(req.user!.id, data);
+
+            res.status(200).json({
+                success: true,
+                message: "User profile updated successfully",
+                data: response,
+            });
+        } catch (error) {
+            if (req.file) {
+                const filePath = path.join(UPLOAD_DIR, req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+
+            logger.error("Error in AuthController.updateProfile: ", error);
             next(error);
         }
     }
