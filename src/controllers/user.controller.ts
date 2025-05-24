@@ -6,6 +6,7 @@ import { CreateUserRequest, UpdateUserRequest } from "../models/user.model";
 import path from "path";
 import fs from "fs";
 import { UPLOAD_DIR } from "../utils/upload";
+import { ResponseError } from "../types/response.error";
 
 export class UserController {
     static async getUsers(req: UserRequest, res: Response, next: NextFunction) {
@@ -34,12 +35,18 @@ export class UserController {
         try {
             const userId = req.params.id;
 
-            const response = await UserService.findUserById(userId);
+            const user = await UserService.findUserById(userId);
+
+            if (!user) {
+                throw new ResponseError(404, "User not found", {
+                    error: ["User not found with the provided ID"]
+                });
+            }
 
             res.status(200).json({
                 success: true,
                 message: "User retrieved successfully",
-                data: response,
+                data: user,
             });
         } catch (error) {
             next(error);
