@@ -1,3 +1,4 @@
+import { token } from "morgan";
 import { z, ZodType } from "zod";
 
 export class AuthValidation {
@@ -17,4 +18,17 @@ export class AuthValidation {
         password: z.string().min(6).optional(),
         photo: z.string().optional(),
     });
+
+    static readonly SEND_RESET_PASSWORD_EMAIL: ZodType = z.object({
+        email: z.string().email(),
+    });
+
+    static readonly RESET_PASSWORD: ZodType = z.object({
+        token: z.string(),
+        password: z.string().min(6),
+        confirmPassword: z.string().min(6),
+    }).refine((data) => data.password === data.confirmPassword, {
+        path: ['confirmPassword'],
+        message: 'Passwords do not match',
+    });;
 }

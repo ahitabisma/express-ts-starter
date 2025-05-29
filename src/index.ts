@@ -7,10 +7,10 @@ import logger from './config/logger';
 import { userRoutes } from './routes/user.routes';
 import cors from 'cors';
 import morgan from 'morgan';
-import fs from 'fs';
-import path from 'path';
+import { EmailService } from './services/email.service';
 
 dotenv.config();
+
 const app = express();
 
 const morganStream = {
@@ -28,22 +28,29 @@ app.use(cors({
     credentials: true
 }));
 
-app.use
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Folder for static files photo profile users
+// Folder for static files
 app.use('/photo', express.static('public/photo'));
 
 // Routes
 app.use('/api', authRoutes);
-
-// Admin routes
 app.use('/api/admin', userRoutes);
 
 app.use(errorMiddleware);
 
-app.listen(process.env.PORT, () => {
-    logger.info(`Server running at http://localhost:${process.env.PORT}`);
-});
+(async () => {
+    try {
+        await EmailService.init();
+
+        const port = Number(process.env.PORT) || 3000;
+        app.listen(port, () => {
+            logger.info(`Server running at http://localhost:${port}`);
+        });
+    } catch (error) {
+        logger.error('Failed to start server:', error);
+        process.exit(1);
+    }
+})();

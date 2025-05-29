@@ -32,3 +32,18 @@ export function toUserResponse(user: User): UserResponse {
         role: user.role
     };
 }
+
+export interface ResetPasswordEmailRequest {
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+    token: string;
+    password: string;
+    confirmPassword: string;
+}
+
+export interface ResetPasswordResponse {
+    id: number;
+    email: string;
+}

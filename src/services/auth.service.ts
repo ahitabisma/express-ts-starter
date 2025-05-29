@@ -1,15 +1,16 @@
 import { UserController } from './../controllers/user.controller';
 import { prisma } from "../config/database";
-import { RegisterUserRequest, LoginUserRequest, toUserResponse, UserResponse, UpdateUserProfileRequest } from "../models/auth.model";
+import { RegisterUserRequest, LoginUserRequest, toUserResponse, UserResponse, UpdateUserProfileRequest, ResetPasswordEmailRequest, ResetPasswordResponse, ResetPasswordRequest } from "../models/auth.model";
 import { ResponseError } from "../types/response.error";
 import { UserRequest } from "../types/user";
 import { calculateExpiryDate } from "../utils/expired";
-import { generateAccessToken, generateRefreshToken, jwtConfig } from "../utils/jwt";
+import { generateAccessToken, generateRefreshToken, generateResetToken, jwtConfig, verifyResetToken } from "../utils/jwt";
 import { AuthValidation } from "../validation/auth.validation";
 import { Validation } from "../validation/validation";
 import bcrypt from "bcrypt";
 import { UserService } from './user.service';
 import logger from '../config/logger';
+import { EmailService } from './email.service';
 
 export class AuthService {
     static async register(req: RegisterUserRequest) {
@@ -195,5 +196,113 @@ export class AuthService {
         return {
             user: response
         };
+    }
+
+    static async sendResetPassworEmail(req: ResetPasswordEmailRequest): Promise<boolean> {
+        const resetRequest = Validation.validate(AuthValidation.SEND_RESET_PASSWORD_EMAIL, req);
+
+        const user = await prisma.user.findUnique({
+            where: {
+                email: resetRequest.email
+            }
+        });
+
+        if (!user) {
+            throw new ResponseError(404, "User not found", {
+                error: ["User not found"]
+            });
+        }
+
+        const token = generateResetToken(user as ResetPasswordResponse);
+
+        await prisma.resetPasswordToken.create({
+            data: {
+                userId: user.id,
+                token,
+                expiresAt: calculateExpiryDate(jwtConfig.resetToken.expiresIn)
+            }
+        });
+
+        await EmailService.sendPasswordResetEmail(resetRequest.email, token);
+
+        return true;
+    }
+
+    static async resetPassword(req: ResetPasswordRequest) {
+        const resetRequest = Validation.validate(AuthValidation.RESET_PASSWORD, req);
+
+        if (resetRequest.password !== resetRequest.confirmPassword) {
+            throw new ResponseError(400, "Passwords do not match", {
+                confirmPassword: ["Passwords do not match"]
+            });
+        }
+
+        const decoded = verifyResetToken(req.token);
+
+        // Check if the reset token exists and is valid
+        const resetTokenRecord = await prisma.resetPasswordToken.findUnique({
+            where: {
+                token: req.token
+            }
+        });
+
+        if (!resetTokenRecord) {
+            throw new ResponseError(400, "Invalid reset token", {
+                error: ["Invalid or expired reset token"]
+            });
+        }
+
+        if (resetTokenRecord.used) {
+            throw new ResponseError(400, "Reset token already used", {
+                error: ["This reset link has already been used"]
+            });
+        }
+
+        if (resetTokenRecord.expiresAt < new Date()) {
+            throw new ResponseError(400, "Reset token expired", {
+                error: ["Reset link has expired. Please request a new one."]
+            });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: {
+                id: decoded.id
+            }
+        });
+
+        if (!user) {
+            throw new ResponseError(404, "User not found", {
+                error: ["User not found"]
+            });
+        }
+
+        user.password = await bcrypt.hash(resetRequest.password, 10);
+
+        await prisma.user.update({
+            where: {
+                id: user.id
+            },
+            data: {
+                password: user.password
+            }
+        });
+
+        await prisma.resetPasswordToken.update({
+            where: {
+                id: resetTokenRecord.id,
+            },
+            data: {
+                used: true
+            }
+        });
+
+        //  Delete all refresh tokens for the user
+        await prisma.refreshToken.deleteMany({
+            where: {
+                userId: user.id
+            }
+        });
+
+        return true;
     }
 }

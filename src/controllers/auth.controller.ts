@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { RegisterUserRequest, LoginUserRequest, UpdateUserProfileRequest } from "../models/auth.model";
+import { RegisterUserRequest, LoginUserRequest, UpdateUserProfileRequest, ResetPasswordEmailRequest, ResetPasswordRequest } from "../models/auth.model";
 import { AuthService } from "../services/auth.service";
 import logger from "../config/logger";
 import { UserRequest } from "../types/user";
@@ -142,6 +142,40 @@ export class AuthController {
             }
 
             logger.error("Error in AuthController.updateProfile: ", error);
+            next(error);
+        }
+    }
+
+    static async sendResetPasswordEmail(req: Request, res: Response, next: NextFunction) {
+        try {
+            const data = req.body as ResetPasswordEmailRequest;
+
+            const response = await AuthService.sendResetPassworEmail(data);
+
+            res.status(200).json({
+                success: true,
+                message: "Reset password email sent successfully",
+                data: response,
+            });
+        } catch (error) {
+            logger.error("Error in AuthController.sendResetPasswordEmail: ", error);
+            next(error);
+        }
+    }
+
+    static async resetPassword(req: Request, res: Response, next: NextFunction) {
+        try {
+            const data = req.body as ResetPasswordRequest;
+
+            const response = await AuthService.resetPassword(data);
+
+            res.status(200).json({
+                success: true,
+                message: "Password reset successfully",
+                data: response,
+            });
+        } catch (error) {
+            logger.error("Error in AuthController.resetPassword: ", error);
             next(error);
         }
     }
