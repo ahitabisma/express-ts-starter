@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { authRoutes } from './routes/auth.routes';
@@ -36,6 +36,9 @@ app.use(cookieParser());
 app.use('/photo', express.static('public/photo'));
 
 // Routes
+app.use('/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'OK', message: 'Server is healthy' });
+});
 app.use('/api', authRoutes);
 app.use('/api/admin', userRoutes);
 
