@@ -62,3 +62,8 @@ npx prisma db seed
 ```bash
 npm run dev
 ```
+
+### Generate Random Key for .env File using Terminal
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
