@@ -13,6 +13,8 @@ dotenv.config();
 
 const app = express();
 
+app.set('trust proxy', true);
+
 const morganStream = {
     write: (message: string) => {
         logger.info(message.trim());
@@ -37,7 +39,13 @@ app.use('/photo', express.static('public/photo'));
 
 // Routes
 app.use('/health', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'OK', message: 'Server is healthy' });
+    res.status(200).json({ 
+        status: 'OK', 
+        message: 'Server is healthy', 
+        data: {
+            "ip_address": req.ip
+        }
+    });
 });
 app.use('/api', authRoutes);
 app.use('/api/admin', userRoutes);
