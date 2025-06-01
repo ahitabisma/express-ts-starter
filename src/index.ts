@@ -8,6 +8,7 @@ import { userRoutes } from './routes/user.routes';
 import cors from 'cors';
 import morgan from 'morgan';
 import { EmailService } from './services/email.service';
+import { apiLimiter } from './middlewares/rate-limit.middleware';
 
 dotenv.config();
 
@@ -36,6 +37,9 @@ app.use(cookieParser());
 
 // Folder for static files
 app.use('/photo', express.static('public/photo'));
+
+// Rate Limit Middleware
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/health', (req: Request, res: Response) => {
