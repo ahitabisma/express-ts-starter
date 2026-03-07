@@ -9,7 +9,7 @@ export const errorMiddleware = async (error: Error, req: Request, res: Response,
         // Format ZodError menjadi struktur yang lebih mudah dibaca
         const formattedErrors: Record<string, string[]> = {};
 
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
             const field = err.path.join("."); // Mengambil path field dari error
 
             if (!formattedErrors[field]) {

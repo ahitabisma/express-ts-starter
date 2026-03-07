@@ -5,13 +5,12 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -20,16 +19,17 @@ enum Role {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  email               String               @unique
-  password            String
-  photo               String?
-  role                Role                 @default(USER)
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  photo     String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   refreshTokens       RefreshToken[]
   passwordResetTokens ResetPasswordToken[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
 
   @@map("users")
 }
@@ -37,22 +37,26 @@ model User {
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique @db.VarChar(512)
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
 }
 
 model ResetPasswordToken {
   id        String   @id @default(uuid())
-  userId    Int
+  userId    Int      @map("user_id")
   token     String   @unique @db.VarChar(512)
   used      Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("reset_password_tokens")
 }

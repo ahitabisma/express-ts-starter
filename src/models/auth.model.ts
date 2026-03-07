@@ -1,4 +1,5 @@
-import { Role, User } from "../../generated/prisma";
+import { User } from "../../generated/prisma/client";
+import { Role } from "../../generated/prisma/enums";
 
 export interface RegisterUserRequest {
     name: string;
