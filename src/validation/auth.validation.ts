@@ -1,34 +1,75 @@
-import { token } from "morgan";
-import { z, ZodType } from "zod";
+import z, { ZodType } from "zod";
 
 export class AuthValidation {
-    static readonly REGISTER: ZodType = z.object({
-        name: z.string().min(5),
-        email: z.string().email(),
-        password: z.string().min(6),
+  static readonly REGISTER: ZodType = z
+    .object({
+      fullName: z
+        .string()
+        .min(3, "Full name must be at least 3 characters long"),
+      email: z.email("Invalid email address"),
+      password: z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(
+          /[^A-Za-z0-9]/,
+          "Password must contain at least one special character",
+        ),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     });
 
-    static readonly LOGIN: ZodType = z.object({
-        email: z.string().email(),
-        password: z.string().min(6),
+  static readonly LOGIN: ZodType = z.object({
+    email: z.email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+  });
+
+  static readonly FORGOT_PASSWORD: ZodType = z.object({
+    email: z.email("Invalid email address"),
+  });
+
+  static readonly RESET_PASSWORD: ZodType = z
+    .object({
+      token: z.string().min(1, "Reset token is required"),
+      password: z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(
+          /[^A-Za-z0-9]/,
+          "Password must contain at least one special character",
+        ),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     });
 
-    static readonly UPDATE_PROFILE: ZodType = z.object({
-        name: z.string().optional(),
-        password: z.string().min(6).optional(),
-        photo: z.string().optional(),
+  static readonly CHANGE_PASSWORD: ZodType = z
+    .object({
+      currentPassword: z.string().min(1, "Current password is required"),
+      newPassword: z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(
+          /[^A-Za-z0-9]/,
+          "Password must contain at least one special character",
+        ),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
     });
-
-    static readonly SEND_RESET_PASSWORD_EMAIL: ZodType = z.object({
-        email: z.string().email(),
-    });
-
-    static readonly RESET_PASSWORD: ZodType = z.object({
-        token: z.string(),
-        password: z.string().min(6),
-        confirmPassword: z.string().min(6),
-    }).refine((data) => data.password === data.confirmPassword, {
-        path: ['confirmPassword'],
-        message: 'Passwords do not match',
-    });;
 }

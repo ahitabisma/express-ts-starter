@@ -1,8 +1,7 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
   provider = "prisma-client"
@@ -19,44 +18,49 @@ enum Role {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  photo     String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  fullName       String    @db.VarChar(255)
+  email          String    @unique
+  password       String
+  role           Role      @default(USER)
+  avatar         String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  refreshTokens       RefreshToken[]
-  passwordResetTokens ResetPasswordToken[]
+  // Relations
+  refreshTokens  RefreshToken[]
+  resetTokens    PasswordResetToken[]
 
   @@map("users")
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
-  token     String   @unique @db.VarChar(512)
-  userId    Int      @map("user_id")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  userId    String
+
+  token     String   @unique
+  isRevoked Boolean  @default(false)
+  
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
 }
 
-model ResetPasswordToken {
+model PasswordResetToken {
   id        String   @id @default(uuid())
-  userId    Int      @map("user_id")
-  token     String   @unique @db.VarChar(512)
-  used      Boolean  @default(false)
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  userId    String
+  
+  token     String   @unique
+  isUsed    Boolean  @default(false)
+  
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("reset_password_tokens")
+  @@map("password_reset_tokens")
 }

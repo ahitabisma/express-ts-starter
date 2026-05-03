@@ -5,3 +5,6 @@ dist
 generated
 logs
 public/photo/*
+/src/generated/prisma
+
+/generated/prisma

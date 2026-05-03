@@ -1,0 +1,25 @@
+import { User } from "../../generated/prisma/client";
+
+export interface RegisterDTO {
+  fullName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface LoginDTO {
+  email: string;
+  password: string;
+}
+
+export function toUserResponse(user: User) {
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
