@@ -18,7 +18,7 @@ CREATE TABLE `users` (
 CREATE TABLE `refresh_tokens` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
-    `token` VARCHAR(191) NOT NULL,
+    `token` VARCHAR(512) NOT NULL,
     `isRevoked` BOOLEAN NOT NULL DEFAULT false,
     `expiresAt` DATETIME(3) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -31,7 +31,7 @@ CREATE TABLE `refresh_tokens` (
 CREATE TABLE `password_reset_tokens` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
-    `token` VARCHAR(191) NOT NULL,
+    `token` VARCHAR(512) NOT NULL,
     `isUsed` BOOLEAN NOT NULL DEFAULT false,
     `expiresAt` DATETIME(3) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

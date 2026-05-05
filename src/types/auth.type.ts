@@ -1,4 +1,4 @@
-import { User } from "../../generated/prisma/client";
+import { Role, User } from "../../generated/prisma/client";
 
 export interface RegisterDTO {
   fullName: string;
@@ -22,4 +22,11 @@ export function toUserResponse(user: User) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
+}
+
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  role: Role;
+  type: "access" | "refresh";
 }

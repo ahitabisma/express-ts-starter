@@ -1,46 +1,69 @@
 import { Response } from "express";
 import { v4 as uuidv4 } from "uuid";
+import { AppStatus } from "../types/app.type";
 
 export const response_handler = (
   res: Response,
   statusCode: number,
   status: string,
   message = "",
-  data: unknown = null,
-  errors: any = null,
+  data?: unknown,
+  errors?: unknown,
+  pagination?: unknown,
 ): Response => {
-  // Gunakan ID yang sudah menempel di res.locals agar sinkron dengan log
   const requestId = res.locals.requestId || uuidv4();
   res.locals.requestId = requestId;
 
-  return res.status(statusCode).json({
+  const response: any = {
     status,
     message,
-    data: data ?? null,
-    errors: errors ?? null,
+    ...(data !== undefined && data !== null ? { data } : {}),
+    ...(errors !== undefined && errors !== null ? { errors } : {}),
     meta: {
       requestId,
       timestamp: new Date().toISOString(),
+      ...(pagination ? { pagination } : {}),
     },
-  });
+  };
+
+  return res.status(statusCode).json(response);
 };
 
 export const response_success = (
   res: Response,
   statusCode: number,
-  status: string = "SUCCESS",
+  status: string = AppStatus.SUCCESS,
   message = "",
-  data: unknown = null,
+  data?: unknown,
 ): Response => {
   return response_handler(res, statusCode, status, message, data);
+};
+
+export const response_paginated = (
+  res: Response,
+  statusCode: number,
+  status: string = AppStatus.SUCCESS,
+  message = "",
+  data?: unknown,
+  pagination?: unknown,
+) => {
+  return response_handler(
+    res,
+    statusCode,
+    status,
+    message,
+    data,
+    undefined,
+    pagination,
+  );
 };
 
 export const response_error = (
   res: Response,
   statusCode: number,
-  status: string = "INTERNAL_ERROR",
+  status: string = AppStatus.INTERNAL_ERROR,
   message = "",
-  errors: any = null,
+  errors?: unknown,
 ): Response => {
-  return response_handler(res, statusCode, status, message, null, errors);
+  return response_handler(res, statusCode, status, message, undefined, errors);
 };

@@ -7,8 +7,8 @@ const startServer = async () => {
     // Connect to the database
     await prisma.$connect();
 
-    const server = app.listen(process.env.PORT, () => {
-      appLogger.info(`🚀 Server is running on port ${process.env.PORT}`);
+    const server = app.listen(process.env.APP_PORT, () => {
+      appLogger.info(`🚀 Server is running on port ${process.env.APP_PORT}`);
     });
 
     // Graceful shutdown
@@ -22,6 +22,10 @@ const startServer = async () => {
         process.exit(0);
       });
     };
+
+    // Register signal handlers
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   } catch (error) {
     appLogger.error("❌ Failed to start server:", error);
     await prisma.$disconnect();

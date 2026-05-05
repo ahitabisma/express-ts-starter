@@ -17,7 +17,7 @@ export const errorMiddleware = (
   let statusCode = err.statusCode || 500;
   let status = err.status || AppStatus.INTERNAL_ERROR;
   let message = err.message || "An unexpected error occurred";
-  let errors = null;
+  let errors = undefined;
 
   if (err instanceof ZodError) {
     statusCode = 400;
@@ -32,7 +32,7 @@ export const errorMiddleware = (
   const errorResponse = {
     status,
     message,
-    data: null,
+    data: undefined,
     errors,
     meta: {
       requestId,

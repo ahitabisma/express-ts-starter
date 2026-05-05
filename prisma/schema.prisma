@@ -18,30 +18,30 @@ enum Role {
 }
 
 model User {
-  id             String    @id @default(uuid())
-  fullName       String    @db.VarChar(255)
-  email          String    @unique
-  password       String
-  role           Role      @default(USER)
-  avatar         String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  fullName  String   @db.VarChar(255)
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  refreshTokens  RefreshToken[]
-  resetTokens    PasswordResetToken[]
+  refreshTokens RefreshToken[]
+  resetTokens   PasswordResetToken[]
 
   @@map("users")
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
+  id     String @id @default(uuid())
+  userId String
 
-  token     String   @unique
-  isRevoked Boolean  @default(false)
-  
+  token     String  @unique @db.VarChar(512)
+  isRevoked Boolean @default(false)
+
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -51,12 +51,12 @@ model RefreshToken {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  
-  token     String   @unique
-  isUsed    Boolean  @default(false)
-  
+  id     String @id @default(uuid())
+  userId String
+
+  token  String  @unique @db.VarChar(512)
+  isUsed Boolean @default(false)
+
   expiresAt DateTime
   createdAt DateTime @default(now())
 
