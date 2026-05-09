@@ -1,7 +1,14 @@
 import { NextFunction, Response, Request } from "express";
 import { UserService } from "../service/user.service";
-import { response_paginated, response_success } from "../utils/response.util";
+import {
+  response_error,
+  response_paginated,
+  response_success,
+} from "../utils/response.util";
 import { checkFilteringQuery } from "../utils/filter.util";
+import { UserValidation } from "../validation/user.validation";
+import { UpdateProfileDTO } from "../types/user.type";
+import { AppStatus } from "../types/app.type";
 
 export class UserController {
   static async getProfile(req: Request, res: Response, next: NextFunction) {
@@ -13,6 +20,74 @@ export class UserController {
         "SUCCESS",
         "User profile retrieved successfully",
         user,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+
+      const data = UserValidation.UPDATE_PROFILE.parse(
+        req.body,
+      ) as UpdateProfileDTO;
+
+      const result = await UserService.updateProfile(userId, data);
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "User profile updated successfully",
+        result,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async uploadAvatar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+
+      const r = req as any;
+
+      if (!r.file) {
+        return response_error(
+          res,
+          400,
+          AppStatus.VALIDATION_ERROR,
+          "No file uploaded",
+        );
+      }
+
+      const result = await UserService.uploadAvatar(userId, r.file.buffer);
+
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "Avatar uploaded successfully",
+        result,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteAvatar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+
+      const result = await UserService.deleteAvatar(userId);
+
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "Avatar deleted successfully",
+        result,
       );
     } catch (error) {
       next(error);

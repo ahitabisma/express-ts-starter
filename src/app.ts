@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { globalRateLimiter } from "./middlewares/rate-limit.middleware";
 import { routes } from "./routes/index.route";
 import { errorMiddleware } from "./middlewares/error.middleware";
+import path from "path";
 
 const app = express();
 
@@ -24,6 +25,9 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 app.use(cookieParser(process.env.COOKIE_SECRET));
+
+// Static files
+app.use("/upload", express.static(path.join(process.cwd(), "public", "upload")));
 
 app.use("/", routes);
 
