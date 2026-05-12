@@ -3,7 +3,13 @@ import { appLogger } from "../lib/winston";
 import { AuthValidation } from "../validation/auth.validation";
 import { response_success } from "../utils/response.util";
 import { AuthService } from "../service/auth.service";
-import { ChangePasswordDTO, LoginDTO, RegisterDTO } from "../types/auth.type";
+import {
+  ChangePasswordDTO,
+  ForgotPasswordDTO,
+  LoginDTO,
+  RegisterDTO,
+  ResetPasswordDTO,
+} from "../types/auth.type";
 import {
   clearAuthCookies,
   getRefreshTokenFromCookie,
@@ -109,6 +115,46 @@ export class AuthController {
         200,
         "SUCCESS",
         "Password changed successfully",
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = Validation.validate(
+        AuthValidation.FORGOT_PASSWORD,
+        req.body,
+      ) as ForgotPasswordDTO;
+
+      await AuthService.forgotPassword(data);
+
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "If an account with that email exists, a password reset link has been sent",
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = Validation.validate(
+        AuthValidation.RESET_PASSWORD,
+        req.body,
+      ) as ResetPasswordDTO;
+
+      await AuthService.resetPassword(data);
+
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "Password has been reset successfully",
       );
     } catch (error) {
       next(error);

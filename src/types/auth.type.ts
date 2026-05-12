@@ -18,6 +18,16 @@ export interface ChangePasswordDTO {
   confirmPassword: string;
 }
 
+export interface ForgotPasswordDTO {
+  email: string;
+}
+
+export interface ResetPasswordDTO {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
 export function toUserResponse(user: User) {
   return {
     id: user.id,

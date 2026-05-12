@@ -2,8 +2,10 @@ import { prisma } from "../lib/prisma";
 import { AppStatus } from "../types/app.type";
 import {
   ChangePasswordDTO,
+  ForgotPasswordDTO,
   LoginDTO,
   RegisterDTO,
+  ResetPasswordDTO,
   toUserResponse,
 } from "../types/auth.type";
 import { AppError, ValidationError } from "../utils/app-error.util";
@@ -14,6 +16,10 @@ import {
   getRefreshTokenExpiresAt,
   verifyRefreshToken,
 } from "../utils/jwt.util";
+import { sendPasswordResetEmail } from "../lib/nodemailer";
+import crypto from "crypto";
+
+const RESET_TOKEN_EXPIRES_HOURS = 1;
 
 export class AuthService {
   static async register(data: RegisterDTO) {
@@ -194,6 +200,70 @@ export class AuthService {
       }),
       prisma.refreshToken.updateMany({
         where: { userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+  }
+
+  static async forgotPassword(data: ForgotPasswordDTO) {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (!user) return;
+
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, isUsed: false },
+      data: { isUsed: true },
+    });
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(
+      Date.now() + RESET_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
+    );
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    await sendPasswordResetEmail(user.email, user.fullName, resetToken);
+  }
+
+  static async resetPassword(data: ResetPasswordDTO) {
+    const resetTokenRecord = await prisma.passwordResetToken.findUnique({
+      where: { token: data.token },
+      include: { user: true },
+    });
+
+    if (
+      !resetTokenRecord ||
+      resetTokenRecord.isUsed ||
+      resetTokenRecord.expiresAt < new Date()
+    ) {
+      throw new AppError(
+        "Invalid or expired reset token",
+        400,
+        AppStatus.BAD_REQUEST,
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetTokenRecord.userId },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetTokenRecord.id },
+        data: { isUsed: true },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId: resetTokenRecord.userId },
         data: { isRevoked: true },
       }),
     ]);
