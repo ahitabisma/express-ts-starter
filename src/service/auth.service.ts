@@ -1,0 +1,284 @@
+import { prisma } from "../lib/prisma";
+import { AppStatus } from "../types/app.type";
+import {
+  ChangePasswordDTO,
+  ForgotPasswordDTO,
+  LoginDTO,
+  RegisterDTO,
+  ResetPasswordDTO,
+  toUserResponse,
+} from "../types/auth.type";
+import { AppError, ValidationError } from "../utils/app-error.util";
+import bcrypt from "bcrypt";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  getRefreshTokenExpiresAt,
+  verifyRefreshToken,
+} from "../utils/jwt.util";
+import { sendPasswordResetEmail } from "../lib/nodemailer";
+import crypto from "crypto";
+
+const RESET_TOKEN_EXPIRES_HOURS = 1;
+
+export class AuthService {
+  static async register(data: RegisterDTO) {
+    const existingEmail = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingEmail) {
+      throw new AppError(
+        "Email is already registered",
+        409,
+        AppStatus.CONFLICT,
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        fullName: data.fullName,
+        email: data.email,
+        password: hashedPassword,
+        role: "USER",
+      },
+    });
+
+    return toUserResponse(user);
+  }
+
+  static async login(data: LoginDTO) {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (!user) {
+      throw new AppError(
+        "Invalid email or password",
+        401,
+        AppStatus.INVALID_CREDENTIALS,
+      );
+    }
+
+    if (!user.isActive) {
+      throw new AppError(
+        "Account is inactive. Please contact support.",
+        403,
+        AppStatus.FORBIDDEN,
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(data.password, user.password);
+
+    if (!isPasswordValid) {
+      throw new AppError(
+        "Invalid email or password",
+        401,
+        AppStatus.INVALID_CREDENTIALS,
+      );
+    }
+
+    const tokenPayload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Store refresh token
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: getRefreshTokenExpiresAt(),
+      },
+    });
+
+    return {
+      user: toUserResponse(user),
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  static async refreshToken(oldToken: string) {
+    const payload = await verifyRefreshToken(oldToken);
+
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: oldToken },
+      include: { user: true },
+    });
+
+    if (
+      !storedToken ||
+      storedToken.isRevoked ||
+      storedToken.expiresAt < new Date()
+    ) {
+      throw new AppError(
+        "Invalid or expired refresh token",
+        401,
+        AppStatus.UNAUTHORIZED,
+      );
+    }
+
+    if (!storedToken.user.isActive) {
+      throw new AppError(
+        "Your account has been deactivated",
+        403,
+        AppStatus.FORBIDDEN,
+      );
+    }
+
+    await prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { isRevoked: true },
+    });
+
+    const tokenPayload = {
+      sub: storedToken.user.id,
+      email: storedToken.user.email,
+      role: storedToken.user.role,
+    };
+
+    const newAccessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: newRefreshToken,
+        userId: storedToken.user.id,
+        expiresAt: getRefreshTokenExpiresAt(),
+      },
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  static async logout(token: string) {
+    if (!token) return;
+
+    await prisma.refreshToken.updateMany({
+      where: { token },
+      data: { isRevoked: true },
+    });
+  }
+
+  static async changePassword(userId: string, data: ChangePasswordDTO) {
+    const user = await findByUserId(userId);
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      data.currentPassword,
+      user.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new ValidationError([
+        {
+          field: "currentPassword",
+          message: "Current password is incorrect",
+        },
+      ]);
+    }
+
+    if (data.newPassword !== data.confirmPassword) {
+      throw new ValidationError([
+        {
+          field: "confirmPassword",
+          message: "New password and confirmation do not match",
+        },
+      ]);
+    }
+
+    const hashedNewPassword = await bcrypt.hash(data.newPassword, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+  }
+
+  static async forgotPassword(data: ForgotPasswordDTO) {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (!user) return;
+
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, isUsed: false },
+      data: { isUsed: true },
+    });
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(
+      Date.now() + RESET_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
+    );
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    await sendPasswordResetEmail(user.email, user.fullName, resetToken);
+  }
+
+  static async resetPassword(data: ResetPasswordDTO) {
+    const resetTokenRecord = await prisma.passwordResetToken.findUnique({
+      where: { token: data.token },
+      include: { user: true },
+    });
+
+    if (
+      !resetTokenRecord ||
+      resetTokenRecord.isUsed ||
+      resetTokenRecord.expiresAt < new Date()
+    ) {
+      throw new AppError(
+        "Invalid or expired reset token",
+        400,
+        AppStatus.BAD_REQUEST,
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetTokenRecord.userId },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetTokenRecord.id },
+        data: { isUsed: true },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId: resetTokenRecord.userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+  }
+}
+
+// PRIVATE HELPER FUNCTIONS
+async function findByUserId(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404, AppStatus.NOT_FOUND);
+  }
+
+  return user;
+}

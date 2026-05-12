@@ -1,54 +1,58 @@
-import { Response, Request, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
-import { ResponseError } from "../types/response.error";
-import multer from "multer";
-import jwt from "jsonwebtoken";
+import { v4 as uuidv4 } from "uuid";
+import { appLogger } from "../lib/winston";
+import { AppStatus } from "../types/app.type";
+import { ValidationError } from "../utils/app-error.util";
+import path from "node:path";
 
-export const errorMiddleware = async (error: Error, req: Request, res: Response, next: NextFunction) => {
-    if (error instanceof ZodError) {
-        // Format ZodError menjadi struktur yang lebih mudah dibaca
-        const formattedErrors: Record<string, string[]> = {};
+export const errorMiddleware = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const requestId = res.locals.requestId || uuidv4();
+  const timestamp = new Date().toISOString();
 
-        error.errors.forEach((err) => {
-            const field = err.path.join("."); // Mengambil path field dari error
+  let statusCode = err.statusCode || 500;
+  let status = err.status || AppStatus.INTERNAL_ERROR;
+  let message = err.message || "An unexpected error occurred";
+  let errors = undefined;
 
-            if (!formattedErrors[field]) {
-                formattedErrors[field] = [];
-            }
+  if (err instanceof ValidationError) {
+    statusCode = err.statusCode;
+    status = err.status;
+    message = err.message;
+    errors = err.errors;
+  } else if (err instanceof ZodError) {
+    statusCode = 400;
+    status = AppStatus.VALIDATION_ERROR;
+    message = "Validation failed";
+    errors = err.issues.map((issue) => ({
+      field: issue.path.length > 0 ? issue.path.join(".") : "body",
+      message: issue.message,
+    }));
+  }
 
-            formattedErrors[field].push(err.message);
-        });
+  const errorResponse = {
+    status,
+    message,
+    data: undefined,
+    errors,
+    meta: {
+      requestId,
+      timestamp,
+    },
+  };
 
-        res.status(400).json({
-            success: false,
-            message: "Validation failed",
-            errors: formattedErrors
-        });
-    } else if (error instanceof multer.MulterError) {
-        res.status(400).json({
-            success: false,
-            message: error.message,
-            errors: {
-                file: [error.message]
-            }
-        });
-    } else if (error instanceof jwt.TokenExpiredError) {
-        res.status(401).json({
-            success: false,
-            message: "Token expired",
-            errors: {
-                token: ["Token expired"]
-            }
-        })
-    } else if (error instanceof ResponseError) {
-        res.status(error.status).json({
-            success: false,
-            message: error.message,
-            errors: error.errors || {}
-        });
-    } else {
-        res.status(500).json({
-            errors: error.message
-        });
-    }
-}
+  const loggerResponse = {
+    ...errorResponse,
+    path: req.originalUrl,
+    method: req.method,
+  };
+
+  appLogger.error(JSON.stringify(loggerResponse));
+
+  return res.status(statusCode).json(errorResponse);
+};

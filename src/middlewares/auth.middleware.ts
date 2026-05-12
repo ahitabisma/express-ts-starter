@@ -1,55 +1,66 @@
-import { NextFunction, Response } from "express";
-import { UserRequest } from "../types/user";
-import { ResponseError } from "../types/response.error";
-import { verifyAccessToken } from "../utils/jwt";
-import { prisma } from "../config/database";
-import jwt from "jsonwebtoken";
+import { NextFunction, Request, Response } from "express";
+import { getAccessTokenFromCookie } from "../utils/cookie.util";
+import { AppError } from "../utils/app-error.util";
+import { AppStatus } from "../types/app.type";
+import { verifyAccessToken } from "../utils/jwt.util";
+import { prisma } from "../lib/prisma";
+import { Role } from "../../generated/prisma/enums";
 
-export const authMiddleware = async (req: UserRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const token = getAccessTokenFromCookie(req.cookies);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw new ResponseError(401, "Unauthorized", {
-            error: ["No authentication token provided"]
-        });
+    if (!token) {
+      throw new AppError("Unauthorized", 401, AppStatus.UNAUTHORIZED);
     }
 
-    const token = authHeader.split(' ')[1];
+    const payload = verifyAccessToken(token);
 
-    try {
-        const decoded = verifyAccessToken(token);
-
-        // Check if user exists
-        const user = await prisma.user.findUnique({
-            where: {
-                id: decoded.id
-            }
-        });
-
-        if (!user) {
-            throw new ResponseError(401, "Unauthorized", {
-                error: ["User not found"]
-            });
-        }
-
-        // Add user to request for use in routes
-        req.user = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-        };
-
-        next();
-    } catch (error) {
-        if (error instanceof jwt.TokenExpiredError) {
-            throw new ResponseError(401, "Token expired", {
-                error: ["Your session has expired. Please login again."]
-            });
-        } else {
-            throw new ResponseError(401, "Unauthorized", {
-                error: ["Invalid authentication token"]
-            });
-        }
+    if (payload.type !== "access") {
+      throw new AppError("Unauthorized", 401, AppStatus.UNAUTHORIZED);
     }
-}
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new AppError("Unauthorized", 401, AppStatus.UNAUTHORIZED);
+    }
+
+    (req as Request).user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const authorize = (...roles: Role[]) => {
+  return (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void => {
+    if (!req.user) {
+      return next(new AppError("Unauthorized", 401, AppStatus.UNAUTHORIZED));
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError("Insufficient permissions", 403, AppStatus.FORBIDDEN),
+      );
+    }
+
+    next();
+  };
+};

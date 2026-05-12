@@ -1,45 +1,59 @@
-import rateLimit from 'express-rate-limit';
-import { Response } from 'express';
-import logger from '../config/logger';
-import { UserRequest } from '../types/user';
+import rateLimit from "express-rate-limit";
+import { AppStatus } from "../types/app.type";
+import { v4 as uuidv4 } from "uuid";
+import { Request, Response } from "express";
 
-// Default rate limit configuration
-const DEFAULT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const DEFAULT_MAX_REQUESTS = 100; // 100 requests per windowMs
+export const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
 
-export const createRateLimiter = (
-    windowMs: number = DEFAULT_WINDOW_MS,
-    max: number = DEFAULT_MAX_REQUESTS
-) => {
-    return rateLimit({
-        windowMs,
-        max,
-        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  handler: (req: Request, res: Response) => {
+    const requestId = res.locals.requestId || uuidv4();
+    res.locals.requestId = requestId;
 
-        // Custom handler for when rate limit is exceeded
-        handler: (req: UserRequest, res: Response) => {
-            logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
-
-            res.status(429).json({
-                success: false,
-                message: 'Too many requests, please try again later.',
-                errors: {
-                    rateLimit: ['Rate limit exceeded. Please try again later.']
-                }
-            });
-        },
-
-        // Store client ID to track rate limiting
-        keyGenerator: (req: any) => {
-            const userReq = req as UserRequest;
-            // Use user ID if authenticated, otherwise use IP
-            return req.user?.id?.toString() || req.ip;
-        },
+    return res.status(429).json({
+      status: AppStatus.TOO_MANY_REQUESTS,
+      message: "Too many requests, please try again later.",
+      meta: {
+        requestId,
+        timestamp: new Date().toISOString(),
+        retryAfter:
+          Math.ceil(
+            (req.rateLimit?.resetTime?.getTime() || 0 - Date.now()) / 1000,
+          ) || null,
+        limit: req.rateLimit?.limit,
+        remaining: req.rateLimit?.remaining,
+      },
     });
-};
+  },
+});
 
-// Different rate limiters for different routes
-export const apiLimiter = createRateLimiter(15 * 60 * 1000, 100); // 100 requests per 15 minutes
-export const authLimiter = createRateLimiter(15 * 60 * 1000, 10); // 10 requests per 15 minutes for auth routes
-export const sensitiveActionsLimiter = createRateLimiter(60 * 60 * 1000, 5); // 5 requests per hour for password reset
+export const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+
+  handler: (req: Request, res: Response) => {
+    const requestId = res.locals.requestId || uuidv4();
+    res.locals.requestId = requestId;
+
+    return res.status(429).json({
+      status: AppStatus.TOO_MANY_REQUESTS,
+      message: "Too many authentication attempts, please try again later.",
+      meta: {
+        requestId,
+        timestamp: new Date().toISOString(),
+        retryAfter:
+          Math.ceil(
+            (req.rateLimit?.resetTime?.getTime() || 0 - Date.now()) / 1000,
+          ) || null,
+        limit: req.rateLimit?.limit,
+        remaining: req.rateLimit?.remaining,
+      },
+    });
+  },
+});

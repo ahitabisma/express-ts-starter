@@ -1,18 +1,8 @@
-import { z, ZodType } from "zod";
+import z, { ZodType } from "zod";
 
 export class UserValidation {
-    static readonly CREATE: ZodType = z.object({
-        name: z.string().min(5),
-        email: z.string().email(),
-        password: z.string().min(6),
-        photo: z.string().optional(),
-        role: z.enum(["USER", "ADMIN"]).default("USER"),
-    });
-    
-    static readonly UPDATE: ZodType = z.object({
-        name: z.string().min(5).optional(),
-        email: z.string().email().optional(),
-        password: z.string().min(6).optional(),
-        photo: z.string().optional(),
-    });
+  static readonly UPDATE_PROFILE: ZodType = z.object({
+    fullName: z.string().min(3, "Full name must be at least 3 characters long").optional(),
+    email: z.string().email("Invalid email address").optional(),
+  });
 }
