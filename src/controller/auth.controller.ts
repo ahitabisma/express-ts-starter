@@ -3,7 +3,7 @@ import { appLogger } from "../lib/winston";
 import { AuthValidation } from "../validation/auth.validation";
 import { response_success } from "../utils/response.util";
 import { AuthService } from "../service/auth.service";
-import { LoginDTO, RegisterDTO } from "../types/auth.type";
+import { ChangePasswordDTO, LoginDTO, RegisterDTO } from "../types/auth.type";
 import {
   clearAuthCookies,
   getRefreshTokenFromCookie,
@@ -16,7 +16,10 @@ import { Validation } from "../validation/validation";
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = Validation.validate(AuthValidation.REGISTER, req.body) as RegisterDTO;
+      const data = Validation.validate(
+        AuthValidation.REGISTER,
+        req.body,
+      ) as RegisterDTO;
       const result = await AuthService.register(data);
       return response_success(
         res,
@@ -32,7 +35,10 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = Validation.validate(AuthValidation.LOGIN, req.body) as LoginDTO;
+      const data = Validation.validate(
+        AuthValidation.LOGIN,
+        req.body,
+      ) as LoginDTO;
       const { user, accessToken, refreshToken } = await AuthService.login(data);
 
       setAuthCookies(res, accessToken, refreshToken);
@@ -85,6 +91,25 @@ export class AuthController {
       }
       clearAuthCookies(res);
       return response_success(res, 200, "SUCCESS", "Logged out successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const data = Validation.validate(
+        AuthValidation.CHANGE_PASSWORD,
+        req.body,
+      ) as ChangePasswordDTO;
+      await AuthService.changePassword(userId, data);
+      return response_success(
+        res,
+        200,
+        "SUCCESS",
+        "Password changed successfully",
+      );
     } catch (error) {
       next(error);
     }

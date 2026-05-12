@@ -12,6 +12,12 @@ export interface LoginDTO {
   password: string;
 }
 
+export interface ChangePasswordDTO {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export function toUserResponse(user: User) {
   return {
     id: user.id,

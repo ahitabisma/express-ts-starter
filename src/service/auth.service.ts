@@ -1,7 +1,12 @@
 import { prisma } from "../lib/prisma";
 import { AppStatus } from "../types/app.type";
-import { LoginDTO, RegisterDTO, toUserResponse } from "../types/auth.type";
-import { AppError } from "../utils/app-error.util";
+import {
+  ChangePasswordDTO,
+  LoginDTO,
+  RegisterDTO,
+  toUserResponse,
+} from "../types/auth.type";
+import { AppError, ValidationError } from "../utils/app-error.util";
 import bcrypt from "bcrypt";
 import {
   generateAccessToken,
@@ -153,4 +158,57 @@ export class AuthService {
       data: { isRevoked: true },
     });
   }
+
+  static async changePassword(userId: string, data: ChangePasswordDTO) {
+    const user = await findByUserId(userId);
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      data.currentPassword,
+      user.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new ValidationError([
+        {
+          field: "currentPassword",
+          message: "Current password is incorrect",
+        },
+      ]);
+    }
+
+    if (data.newPassword !== data.confirmPassword) {
+      throw new ValidationError([
+        {
+          field: "confirmPassword",
+          message: "New password and confirmation do not match",
+        },
+      ]);
+    }
+
+    const hashedNewPassword = await bcrypt.hash(data.newPassword, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+  }
+}
+
+// PRIVATE HELPER FUNCTIONS
+async function findByUserId(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404, AppStatus.NOT_FOUND);
+  }
+
+  return user;
 }

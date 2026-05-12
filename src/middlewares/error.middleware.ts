@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { appLogger } from "../lib/winston";
 import { AppStatus } from "../types/app.type";
+import { ValidationError } from "../utils/app-error.util";
 import path from "node:path";
 
 export const errorMiddleware = (
@@ -19,7 +20,12 @@ export const errorMiddleware = (
   let message = err.message || "An unexpected error occurred";
   let errors = undefined;
 
-  if (err instanceof ZodError) {
+  if (err instanceof ValidationError) {
+    statusCode = err.statusCode;
+    status = err.status;
+    message = err.message;
+    errors = err.errors;
+  } else if (err instanceof ZodError) {
     statusCode = 400;
     status = AppStatus.VALIDATION_ERROR;
     message = "Validation failed";

@@ -1,13 +1,18 @@
 import { Router } from "express";
 import { AuthController } from "../controller/auth.controller";
 import { authRateLimiter } from "../middlewares/rate-limit.middleware";
+import { authenticate } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.use("/register", authRateLimiter, AuthController.register);
-router.use("/login", authRateLimiter, AuthController.login);
+router.post("/register", authRateLimiter, AuthController.register);
+router.post("/login", authRateLimiter, AuthController.login);
+router.post("/refresh", AuthController.refreshToken);
 
-router.use("/refresh", AuthController.refreshToken);
-router.use("/logout", AuthController.logout);
+router.use(authenticate);
+
+router.post("/logout", AuthController.logout);
+router.post("/change-password", AuthController.changePassword);
+
 
 export { router as authRoutes };
