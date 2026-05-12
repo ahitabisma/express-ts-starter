@@ -9,6 +9,7 @@ import { checkFilteringQuery } from "../utils/filter.util";
 import { UserValidation } from "../validation/user.validation";
 import { UpdateProfileDTO } from "../types/user.type";
 import { AppStatus } from "../types/app.type";
+import { Validation } from "../validation/validation";
 
 export class UserController {
   static async getProfile(req: Request, res: Response, next: NextFunction) {
@@ -30,9 +31,7 @@ export class UserController {
     try {
       const userId = req.user!.id;
 
-      const data = UserValidation.UPDATE_PROFILE.parse(
-        req.body,
-      ) as UpdateProfileDTO;
+      const data = Validation.validate(UserValidation.UPDATE_PROFILE, req.body) as UpdateProfileDTO;
 
       const result = await UserService.updateProfile(userId, data);
       return response_success(

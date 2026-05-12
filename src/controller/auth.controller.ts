@@ -11,11 +11,12 @@ import {
 } from "../utils/cookie.util";
 import { AppStatus } from "../types/app.type";
 import { AppError } from "../utils/app-error.util";
+import { Validation } from "../validation/validation";
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = AuthValidation.REGISTER.parse(req.body) as RegisterDTO;
+      const data = Validation.validate(AuthValidation.REGISTER, req.body) as RegisterDTO;
       const result = await AuthService.register(data);
       return response_success(
         res,
@@ -31,7 +32,7 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = AuthValidation.LOGIN.parse(req.body) as LoginDTO;
+      const data = Validation.validate(AuthValidation.LOGIN, req.body) as LoginDTO;
       const { user, accessToken, refreshToken } = await AuthService.login(data);
 
       setAuthCookies(res, accessToken, refreshToken);
